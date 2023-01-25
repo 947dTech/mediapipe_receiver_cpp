@@ -14,10 +14,6 @@
 
 namespace mediapipe_receiver {
 
-const size_t kNPoseLandmarks = 33;
-const size_t kNFaceLandmarks = 468;
-const size_t kNHandLandmarks = 21;
-
 class MediapipeReceiver {
 private:
 	// constant
@@ -166,6 +162,9 @@ private:
 	HandParams right_hand_params_;
 	HandParams left_hand_params_;
 
+	// switch whether FBX or VRM
+	CoordinatesSet mode_;
+
 public:
 	MediapipeReceiver()
 	{
@@ -229,6 +228,9 @@ public:
 
 		InitPoses();
 
+		right_hand_params_.SetRightHand();
+		left_hand_params_.SetLeftHand();
+
 		upper_arm_roll_offset_ = 0.0;
 		elbow_offset_ = 0.0;
 		thigh_roll_offset_ = 0.0;
@@ -280,50 +282,79 @@ public:
 		return ankle_adjust_angle_;
 	}
 
-	void InitPoses()
+	void InitPoses(CoordinatesSet mode = CoordinatesSet::FBX)
 	{
+		mode_ = mode;
+		right_hand_params_.SetMode(mode_);
+		left_hand_params_.SetMode(mode_);
+
 		// NOTE: eigen is column-major, right hand coordinate system
 		// set pelvis as ROOT
-		pelvis_base_co_ =
-			Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
-			* Eigen::AngleAxisf(Radians(pelvis_adjust_angle_), Eigen::Vector3f::UnitX());
+		if (mode_ == CoordinatesSet::FBX) {
+			pelvis_base_co_ =
+				Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
+				* Eigen::AngleAxisf(Radians(pelvis_adjust_angle_), Eigen::Vector3f::UnitX());
+		} else if (mode_ == CoordinatesSet::VRM) {
+			pelvis_base_co_ = Eigen::Matrix3f::Identity();
+		}
 
 		// global poses
 		// NOTE: shoulder_adjust_angle_ must be set independently?
 		shoulder_base_co_ = pelvis_base_co_;
 		//shoulder_base_co_ = Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX());
 
-		upper_arm_l_base_co_ =
-			Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
-			* Eigen::AngleAxisf(Radians(180.0 - arm_adjust_angle_), Eigen::Vector3f::UnitZ());
+		if (mode_ == CoordinatesSet::FBX) {
+			upper_arm_l_base_co_ =
+				Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
+				* Eigen::AngleAxisf(Radians(180.0 - arm_adjust_angle_), Eigen::Vector3f::UnitZ());
+		} else if (mode_ == CoordinatesSet::VRM) {
+			upper_arm_l_base_co_ = Eigen::Matrix3f::Identity();
+		}
+
 		elbow_l_base_co_ = upper_arm_l_base_co_;
 		phand_l_base_co_ = upper_arm_l_base_co_;
 
-		upper_arm_r_base_co_ =
-			Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
-			* Eigen::AngleAxisf(Radians(180.0 + arm_adjust_angle_), Eigen::Vector3f::UnitZ());
+		if (mode_ == CoordinatesSet::FBX) {
+			upper_arm_r_base_co_ =
+				Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
+				* Eigen::AngleAxisf(Radians(180.0 + arm_adjust_angle_), Eigen::Vector3f::UnitZ());
+		} else if (mode_ == CoordinatesSet::VRM) {
+			upper_arm_r_base_co_ = Eigen::Matrix3f::Identity();
+		}
 		elbow_r_base_co_ = upper_arm_r_base_co_;
 		phand_r_base_co_ = upper_arm_r_base_co_;
 
-		//thigh_l_base_co_ =
-		//	Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
-		//	* Eigen::AngleAxisf(pi_, Eigen::Vector3f::UnitZ());
-		thigh_l_base_co_ =
-			Eigen::AngleAxisf(0.5 * pi_, Eigen::Vector3f::UnitX());
-		knee_l_base_co_ = thigh_l_base_co_;
-		//ankle_l_base_co_ = thigh_l_base_co_;
-		ankle_l_base_co_ =
-			Eigen::AngleAxisf(Radians(ankle_adjust_angle_), Eigen::Vector3f::UnitX());
+		if (mode_ == CoordinatesSet::FBX) {
+			//thigh_l_base_co_ =
+			//	Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
+			//	* Eigen::AngleAxisf(pi_, Eigen::Vector3f::UnitZ());
+			thigh_l_base_co_ =
+				Eigen::AngleAxisf(0.5 * pi_, Eigen::Vector3f::UnitX());
+			knee_l_base_co_ = thigh_l_base_co_;
+			//ankle_l_base_co_ = thigh_l_base_co_;
+			ankle_l_base_co_ =
+				Eigen::AngleAxisf(Radians(ankle_adjust_angle_), Eigen::Vector3f::UnitX());
+		} else if (mode_ == CoordinatesSet::VRM) {
+			thigh_l_base_co_ = Eigen::Matrix3f::Identity();
+			knee_l_base_co_ = thigh_l_base_co_;
+			ankle_l_base_co_ = thigh_l_base_co_;
+		}
 
-		//thigh_r_base_co_ =
-		//	Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
-		//	* Eigen::AngleAxisf(pi_, Eigen::Vector3f::UnitZ());
-		thigh_r_base_co_ =
-			Eigen::AngleAxisf(0.5 * pi_, Eigen::Vector3f::UnitX());
-		knee_r_base_co_ = thigh_r_base_co_;
-		//ankle_r_base_co_ = thigh_r_base_co_;
-		ankle_r_base_co_ =
-			Eigen::AngleAxisf(Radians(ankle_adjust_angle_), Eigen::Vector3f::UnitX());
+		if (mode_ == CoordinatesSet::FBX) {
+			//thigh_r_base_co_ =
+			//	Eigen::AngleAxisf(-0.5 * pi_, Eigen::Vector3f::UnitX())
+			//	* Eigen::AngleAxisf(pi_, Eigen::Vector3f::UnitZ());
+			thigh_r_base_co_ =
+				Eigen::AngleAxisf(0.5 * pi_, Eigen::Vector3f::UnitX());
+			knee_r_base_co_ = thigh_r_base_co_;
+			//ankle_r_base_co_ = thigh_r_base_co_;
+			ankle_r_base_co_ =
+				Eigen::AngleAxisf(Radians(ankle_adjust_angle_), Eigen::Vector3f::UnitX());
+		} else if (mode_ == CoordinatesSet::VRM) {
+			thigh_r_base_co_ = Eigen::Matrix3f::Identity();
+			knee_r_base_co_ = thigh_r_base_co_;
+			ankle_r_base_co_ = thigh_r_base_co_;
+		}
 
 		// local poses
 		local_shoulder_base_co_ = pelvis_base_co_.transpose() * shoulder_base_co_;
@@ -810,7 +841,11 @@ public:
 				pelvis_z /= norm_pelvis_z;
 				// Eigen::Vector3f pelvis_y = pelvis_x.cross(pelvis_z);
 				Eigen::Vector3f pelvis_y = pelvis_z.cross(pelvis_x);
-				MakeMatrixFromVec(pelvis_co_, pelvis_x, pelvis_y, pelvis_z);
+				if (mode_ == CoordinatesSet::FBX) {
+					MakeMatrixFromVec(pelvis_co_, pelvis_x, pelvis_y, pelvis_z);
+				} else if (mode_ == CoordinatesSet::VRM) {
+					MakeMatrixFromVec(pelvis_co_, pelvis_x, pelvis_z, -pelvis_y);
+				}
 			}
 		}
 
@@ -821,24 +856,46 @@ public:
 		float norm_shoulder_vec = shoulder_vec.norm();
 		if (norm_shoulder_vec > 1e-5) {
 			Eigen::Vector3f shoulder_x = shoulder_vec / norm_shoulder_vec;
-			Eigen::Vector3f pelvis_y = pelvis_co_.col(1);
-			// Eigen::Vector3f shoulder_z = pelvis_y.cross(shoulder_x);
-			Eigen::Vector3f shoulder_z = shoulder_x.cross(pelvis_y);
-			float norm_shoulder_z = shoulder_z.norm();
-			if (norm_shoulder_z > 1e-5) {
-				shoulder_z /= norm_shoulder_z;
-				// Eigen::Vector3f shoulder_y = shoulder_x.cross(shoulder_z);
-				Eigen::Vector3f shoulder_y = shoulder_z.cross(shoulder_x);
-				MakeMatrixFromVec(shoulder_co_, shoulder_x, shoulder_y, shoulder_z);
+			if (mode_ == CoordinatesSet::FBX) {
+				Eigen::Vector3f pelvis_y = pelvis_co_.col(1);
+				// Eigen::Vector3f shoulder_z = pelvis_y.cross(shoulder_x);
+				Eigen::Vector3f shoulder_z = shoulder_x.cross(pelvis_y);
+				float norm_shoulder_z = shoulder_z.norm();
+				if (norm_shoulder_z > 1e-5) {
+					shoulder_z /= norm_shoulder_z;
+					// Eigen::Vector3f shoulder_y = shoulder_x.cross(shoulder_z);
+					Eigen::Vector3f shoulder_y = shoulder_z.cross(shoulder_x);
+					MakeMatrixFromVec(shoulder_co_, shoulder_x, shoulder_y, shoulder_z);
+				}
+			} else if (mode_ == CoordinatesSet::VRM) {
+				Eigen::Vector3f pelvis_z = pelvis_co_.col(2);
+				Eigen::Vector3f shoulder_y = pelvis_z.cross(shoulder_x);
+				float norm_shoulder_y = shoulder_y.norm();
+				if (norm_shoulder_y > 1e-5) {
+					shoulder_y /= norm_shoulder_y;
+					Eigen::Vector3f shoulder_z = shoulder_x.cross(shoulder_y);
+					MakeMatrixFromVec(shoulder_co_, shoulder_x, shoulder_y, shoulder_z);
+				}
 			}
 
-			Eigen::Vector3f pelvis_ub_y = pelvis_base_co_.col(1);
-			Eigen::Vector3f shoulder_ub_z = shoulder_x.cross(pelvis_ub_y);
-			float norm_shoulder_ub_z = shoulder_ub_z.norm();
-			if (norm_shoulder_ub_z > 1e-5) {
-				shoulder_ub_z /= norm_shoulder_ub_z;
-				Eigen::Vector3f shoulder_ub_y = shoulder_ub_z.cross(shoulder_x);
-				MakeMatrixFromVec(shoulder_ub_co_, shoulder_x, shoulder_ub_y, shoulder_ub_z);
+			if (mode_ == CoordinatesSet::FBX) {
+				Eigen::Vector3f pelvis_ub_y = pelvis_base_co_.col(1);
+				Eigen::Vector3f shoulder_ub_z = shoulder_x.cross(pelvis_ub_y);
+				float norm_shoulder_ub_z = shoulder_ub_z.norm();
+				if (norm_shoulder_ub_z > 1e-5) {
+					shoulder_ub_z /= norm_shoulder_ub_z;
+					Eigen::Vector3f shoulder_ub_y = shoulder_ub_z.cross(shoulder_x);
+					MakeMatrixFromVec(shoulder_ub_co_, shoulder_x, shoulder_ub_y, shoulder_ub_z);
+				}
+			} else if (mode_ == CoordinatesSet::VRM) {
+				Eigen::Vector3f pelvis_ub_z = pelvis_base_co_.col(2);
+				Eigen::Vector3f shoulder_ub_y = pelvis_ub_z.cross(shoulder_x);
+				float norm_shoulder_ub_y = shoulder_ub_y.norm();
+				if (norm_shoulder_ub_y > 1e-5) {
+					shoulder_ub_y /= norm_shoulder_ub_y;
+					Eigen::Vector3f shoulder_ub_z = shoulder_x.cross(shoulder_ub_y);
+					MakeMatrixFromVec(shoulder_ub_co_, shoulder_x, shoulder_ub_y, shoulder_ub_z);
+				}
 			}
 		}
 
@@ -848,14 +905,23 @@ public:
 		Eigen::Vector3f upper_arm_l_vec = model_pose_points_[11] - model_pose_points_[13];
 		Eigen::Vector3f upper_arm_r_vec = model_pose_points_[12] - model_pose_points_[14];
 		MakeUpperArmCoords(upper_arm_l_co_, upper_arm_l_vec, shoulder_co_);
-		MakeUpperArmCoords(upper_arm_r_co_, upper_arm_r_vec, shoulder_co_);
+		MakeUpperArmCoords(upper_arm_r_co_, upper_arm_r_vec, shoulder_co_, true);
 		// offset
-		float upper_arm_roll_offset_angle =
-			upper_arm_roll_offset_ * shoulder_co_.col(2).dot(Eigen::Vector3f::UnitY());
-		upper_arm_l_co_ = upper_arm_l_co_ *
-			Eigen::AngleAxisf(Radians(-upper_arm_roll_offset_angle), Eigen::Vector3f::UnitZ());
-		upper_arm_r_co_ = upper_arm_r_co_ *
-			Eigen::AngleAxisf(Radians(upper_arm_roll_offset_angle), Eigen::Vector3f::UnitZ());
+		if (mode_ == CoordinatesSet::FBX) {
+			float upper_arm_roll_offset_angle =
+				upper_arm_roll_offset_ * shoulder_co_.col(2).dot(Eigen::Vector3f::UnitY());
+			upper_arm_l_co_ = upper_arm_l_co_ *
+				Eigen::AngleAxisf(Radians(-upper_arm_roll_offset_angle), Eigen::Vector3f::UnitZ());
+			upper_arm_r_co_ = upper_arm_r_co_ *
+				Eigen::AngleAxisf(Radians(upper_arm_roll_offset_angle), Eigen::Vector3f::UnitZ());
+		} else if (mode_ == CoordinatesSet::VRM) {
+			float upper_arm_roll_offset_angle =
+				upper_arm_roll_offset_ * shoulder_co_.col(1).dot(Eigen::Vector3f::UnitY());
+			upper_arm_l_co_ = upper_arm_l_co_ *
+				Eigen::AngleAxisf(Radians(-upper_arm_roll_offset_angle), Eigen::Vector3f::UnitY());
+			upper_arm_r_co_ = upper_arm_r_co_ *
+				Eigen::AngleAxisf(Radians(upper_arm_roll_offset_angle), Eigen::Vector3f::UnitY());
+		}
 
 		// elbow
 		elbow_l_co_ = elbow_l_base_co_;
@@ -863,11 +929,16 @@ public:
 		Eigen::Vector3f elbow_l_vec = model_pose_points_[13] - model_pose_points_[15];
 		Eigen::Vector3f elbow_r_vec = model_pose_points_[14] - model_pose_points_[16];
 		MakeElbowCoords(elbow_l_co_, elbow_l_vec, upper_arm_l_co_);
-		MakeElbowCoords(elbow_r_co_, elbow_r_vec, upper_arm_r_co_);
+		MakeElbowCoords(elbow_r_co_, elbow_r_vec, upper_arm_r_co_, true);
 		// offset
-		Eigen::AngleAxisf elbow_offset_co(Radians(elbow_offset_), Eigen::Vector3f::UnitX());
-		elbow_l_co_ = elbow_l_co_ * elbow_offset_co;
-		elbow_r_co_ = elbow_r_co_ * elbow_offset_co;
+		if (mode_ == CoordinatesSet::FBX) {
+			Eigen::AngleAxisf elbow_offset_co(Radians(elbow_offset_), Eigen::Vector3f::UnitX());
+			elbow_l_co_ = elbow_l_co_ * elbow_offset_co;
+			elbow_r_co_ = elbow_r_co_ * elbow_offset_co;
+		} else if (mode_ == CoordinatesSet::VRM) {
+			elbow_l_co_ = elbow_l_co_ * Eigen::AngleAxisf(Radians(-elbow_offset_), Eigen::Vector3f::UnitZ());
+			elbow_l_co_ = elbow_l_co_ * Eigen::AngleAxisf(Radians(elbow_offset_), Eigen::Vector3f::UnitZ());
+		}
 
 		// hand(pose)
 		MakePHandCoords(
@@ -877,7 +948,7 @@ public:
 		MakePHandCoords(
 			phand_r_co_,
 			model_pose_points_[16], model_pose_points_[18], model_pose_points_[20],
-			elbow_r_co_);
+			elbow_r_co_, true);
 
 		// thigh
 		thigh_l_co_ = thigh_l_base_co_;
@@ -887,12 +958,21 @@ public:
 		MakeThighCoords(thigh_l_co_, thigh_l_vec, pelvis_co_);
 		MakeThighCoords(thigh_r_co_, thigh_r_vec, pelvis_co_);
 		// offset
-		float thigh_roll_offset_angle =
-			thigh_roll_offset_ * pelvis_co_.col(2).dot(Eigen::Vector3f::UnitY());
-		thigh_l_co_ = thigh_l_co_ *
-			Eigen::AngleAxisf(Radians(thigh_roll_offset_angle), Eigen::Vector3f::UnitZ());
-		thigh_r_co_ = thigh_r_co_ *
-			Eigen::AngleAxisf(Radians(-thigh_roll_offset_angle), Eigen::Vector3f::UnitZ());
+		if (mode_ == CoordinatesSet::FBX) {
+			float thigh_roll_offset_angle =
+				thigh_roll_offset_ * pelvis_co_.col(2).dot(Eigen::Vector3f::UnitY());
+			thigh_l_co_ = thigh_l_co_ *
+				Eigen::AngleAxisf(Radians(thigh_roll_offset_angle), Eigen::Vector3f::UnitZ());
+			thigh_r_co_ = thigh_r_co_ *
+				Eigen::AngleAxisf(Radians(-thigh_roll_offset_angle), Eigen::Vector3f::UnitZ());
+		} else if (mode_ == CoordinatesSet::VRM) {
+			float thigh_roll_offset_angle =
+				thigh_roll_offset_ * pelvis_co_.col(1).dot(Eigen::Vector3f::UnitY());
+			thigh_l_co_ = thigh_l_co_ *
+				Eigen::AngleAxisf(Radians(-thigh_roll_offset_angle), Eigen::Vector3f::UnitY());
+			thigh_r_co_ = thigh_r_co_ *
+				Eigen::AngleAxisf(Radians(thigh_roll_offset_angle), Eigen::Vector3f::UnitY());
+		}
 
 		// knee
 		knee_l_co_ = knee_l_base_co_;
@@ -1006,17 +1086,18 @@ public:
 	/// @brief make middle joint (elbow, knee) coords
 	/// @param[out] limb_co target coords
 	/// @param[in] limb_vec vector from limb end to parent end
-	/// @param[in] parent_co parent coords
+	/// @param[in] parent_x parent x vector
+	/// @param[in] parent_y parent y vector
 	void MakeMiddleJointCoords(
 		Eigen::Matrix3f& limb_co,
 		const Eigen::Vector3f& limb_vec,
-		const Eigen::Matrix3f& parent_co,
+		const Eigen::Vector3f& parent_x,
+		const Eigen::Vector3f& parent_y,
 		bool reverse_x = false)
 	{
 		float norm_limb_vec = limb_vec.norm();
 		if (norm_limb_vec > 1e-5) {
 			Eigen::Vector3f limb_y = limb_vec / norm_limb_vec;
-			Eigen::Vector3f parent_y = parent_co.col(1);
 
 			// NOTE: knee coords are opposite side in y axis
 			// Eigen::Vector3f limb_x = parent_y.cross(limb_y);
@@ -1025,15 +1106,12 @@ public:
 			float norm_limb_x = limb_x.norm();
 			if (norm_limb_x > 1e-5) {
 				limb_x /= norm_limb_x;
-				if (limb_x.dot(parent_co.col(0)) < 0.0) {
+				if (limb_x.dot(parent_x) < 0.0) {
 					limb_x = -limb_x;
 				}
 				// Eigen::Vector3f limb_z = limb_y.cross(limb_x);
 				Eigen::Vector3f limb_z = limb_x.cross(limb_y);
 				MakeMatrixFromVec(limb_co, limb_x, limb_y, limb_z);
-			}
-			else {
-				limb_co = parent_co;
 			}
 		}
 	}
@@ -1076,9 +1154,22 @@ public:
 	void MakeUpperArmCoords(
 		Eigen::Matrix3f& upper_arm_co,
 		const Eigen::Vector3f& upper_arm_vec,
-		const Eigen::Matrix3f& shoulder_co)
+		const Eigen::Matrix3f& shoulder_co,
+		bool right_arm = false)
 	{
 		MakeLimbRootCoords(upper_arm_co, upper_arm_vec, shoulder_co);
+		if (mode_ == CoordinatesSet::VRM) {
+			Eigen::Matrix3f tmp_co = upper_arm_co;
+			if (right_arm) {
+				upper_arm_co.col(0) = tmp_co.col(1);
+				upper_arm_co.col(1) = tmp_co.col(2);
+				upper_arm_co.col(2) = tmp_co.col(0);
+			} else {
+				upper_arm_co.col(0) = -tmp_co.col(1);
+				upper_arm_co.col(1) = tmp_co.col(2);
+				upper_arm_co.col(2) = -tmp_co.col(0);
+			}
+		}
 	}
 
 	/// @brief make elbow coords
@@ -1088,9 +1179,31 @@ public:
 	void MakeElbowCoords(
 		Eigen::Matrix3f& elbow_co,
 		const Eigen::Vector3f& elbow_vec,
-		const Eigen::Matrix3f& upper_arm_co)
+		const Eigen::Matrix3f& upper_arm_co,
+		bool right_arm = false)
 	{
-		MakeMiddleJointCoords(elbow_co, elbow_vec, upper_arm_co);
+		if (mode_ == CoordinatesSet::FBX) {
+			MakeMiddleJointCoords(
+				elbow_co, elbow_vec, upper_arm_co.col(0), upper_arm_co.col(1));
+		} else if (mode_ == CoordinatesSet::VRM) {
+			if (right_arm) {
+				MakeMiddleJointCoords(
+					elbow_co, elbow_vec, upper_arm_co.col(2), upper_arm_co.col(0));
+			} else {
+				MakeMiddleJointCoords(
+					elbow_co, elbow_vec, -upper_arm_co.col(2), -upper_arm_co.col(0));
+			}
+			Eigen::Matrix3f tmp_co = elbow_co;
+			if (right_arm) {
+				elbow_co.col(0) = tmp_co.col(1);
+				elbow_co.col(1) = tmp_co.col(2);
+				elbow_co.col(2) = tmp_co.col(0);
+			} else {
+				elbow_co.col(0) = -tmp_co.col(1);
+				elbow_co.col(1) = tmp_co.col(2);
+				elbow_co.col(2) = -tmp_co.col(0);
+			}
+		}
 	}
 
 	/// @brief make hand(pose) coords
@@ -1104,9 +1217,22 @@ public:
 		const Eigen::Vector3f& pt0,
 		const Eigen::Vector3f& pt1,
 		const Eigen::Vector3f& pt2,
-		const Eigen::Matrix3f& parent_co)
+		const Eigen::Matrix3f& parent_co,
+		bool right_arm = false)
 	{
 		MakeEEFCoords(phand_co, pt0, pt1, pt2, parent_co);
+		if (mode_ == CoordinatesSet::VRM) {
+			Eigen::Matrix3f tmp_co = phand_co;
+			if (right_arm) {
+				phand_co.col(0) = tmp_co.col(1);
+				phand_co.col(1) = tmp_co.col(2);
+				phand_co.col(2) = tmp_co.col(0);
+			} else {
+				phand_co.col(0) = -tmp_co.col(1);
+				phand_co.col(1) = tmp_co.col(2);
+				phand_co.col(2) = -tmp_co.col(0);
+			}
+		}
 	}
 
 	/// @brief make thigh coords
@@ -1119,6 +1245,12 @@ public:
 		const Eigen::Matrix3f& pelvis_co)
 	{
 		MakeLimbRootCoords(thigh_co, thigh_vec, pelvis_co, true);
+		if (mode_ == CoordinatesSet::VRM) {
+			Eigen::Matrix3f tmp_co = thigh_co;
+			thigh_co.col(0) = tmp_co.col(0);
+			thigh_co.col(1) = -tmp_co.col(2);
+			thigh_co.col(2) = tmp_co.col(1);
+		}
 	}
 
 	/// @brief make knee coords
@@ -1130,8 +1262,17 @@ public:
 		const Eigen::Vector3f& knee_vec,
 		const Eigen::Matrix3f& thigh_co)
 	{
-		//_MakeMiddleJointCoords(knee_co, knee_vec, thigh_co, true);
-		MakeMiddleJointCoords(knee_co, knee_vec, thigh_co);
+		if (mode_ == CoordinatesSet::FBX) {
+			MakeMiddleJointCoords(
+				knee_co, knee_vec, thigh_co.col(0), thigh_co.col(1));
+		} else if (mode_ == CoordinatesSet::VRM) {
+			MakeMiddleJointCoords(
+				knee_co, knee_vec, thigh_co.col(0), thigh_co.col(2));
+			Eigen::Matrix3f tmp_co = knee_co;
+			knee_co.col(0) = tmp_co.col(0);
+			knee_co.col(1) = -tmp_co.col(2);
+			knee_co.col(2) = tmp_co.col(1);
+		}
 	}
 
 	/// @brief make ankle coords
@@ -1148,8 +1289,15 @@ public:
 		const Eigen::Matrix3f& parent_co)
 	{
 		//MakeEEFCoords(ankle_co, pt0, pt1, pt2, parent_co);
-		Eigen::Vector3f dir_vec = pt0 - pt2;
-		Eigen::Vector3f root_vec = pt1 - pt0;
+		Eigen::Vector3f dir_vec;
+		Eigen::Vector3f root_vec;
+		if (mode_ == CoordinatesSet::FBX) {
+			dir_vec = pt0 - pt2;
+			root_vec = pt1 - pt0;
+		} else if (mode_ == CoordinatesSet::VRM) {
+			dir_vec = pt2 - pt1;
+			root_vec = pt0 - pt1;
+		}
 
 		float dir_length = dir_vec.norm();
 		float root_length = root_vec.norm();
@@ -1193,8 +1341,15 @@ public:
 	void MakeNeckCoords()
 	{
 		if (face_params_.MakeNeckCoords(model_face_points_)) {
+			if (mode_ == CoordinatesSet::FBX) {
+				face_co_ = face_params_.face_co();
+			} else if (mode_ == CoordinatesSet::VRM) {
+				face_co_.col(0) = face_params_.face_co().col(0);
+				face_co_.col(1) = face_params_.face_co().col(2);
+				face_co_.col(2) = -face_params_.face_co().col(1);
+			}
 			// pitch offset
-			face_co_ = face_params_.face_co() * Eigen::AngleAxisf(
+			face_co_ = face_co_ * Eigen::AngleAxisf(
 				Radians(-20.0 + neck_pitch_offset_), Eigen::Vector3f::UnitX());
 
 			Eigen::Matrix3f local_face_co = shoulder_co_.transpose() * face_co_;
@@ -1279,7 +1434,7 @@ public:
 		return neck_pitch_offset_;
 	}
 
-	// 
+	//
 	Eigen::Vector3f EstimateHipPosition()
 	{
 		Eigen::Vector3f result(0.0, 0.0, 0.0);

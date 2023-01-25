@@ -28,9 +28,15 @@ private:
   Eigen::Matrix3f hand_co_;
   Eigen::Matrix3f hand_rot_;
 
+  CoordinatesSet mode_;
+  bool right_hand_;
+
 public:
   HandParams()
   {
+    mode_ = CoordinatesSet::FBX;
+    right_hand_ = false;
+
     thumb_angles_.resize(3);
     index_finger_angles_.resize(3);
     middle_finger_angles_.resize(3);
@@ -50,6 +56,21 @@ public:
     middle_finger_side_angle_ = 0.0;
     ring_finger_side_angle_ = 0.0;
     pinky_side_angle_ = 0.0;
+  }
+
+  void SetRightHand()
+  {
+    right_hand_ = true;
+  }
+
+  void SetLeftHand()
+  {
+    right_hand_ = false;
+  }
+
+  void SetMode(CoordinatesSet mode)
+  {
+    mode_ = mode;
   }
 
   std::vector<float>& thumb_angles()
@@ -113,7 +134,7 @@ public:
   /// @brief make hand coordinate (common for both hands)
   /// @param[in] hand_points hand key points
   /// @param[out] hand_co hand rotation matrix
-  /// @return false if coordinate can not be estimated 
+  /// @return false if coordinate can not be estimated
   bool MakeHandCoords(
     std::vector <Eigen::Vector3f>& hand_points,
     Eigen::Matrix3f& hand_co)
@@ -138,7 +159,15 @@ public:
       if (norm_normal > 1e-5) {
         hand_normal_vector /= norm_normal;
         hand_slide_vector = hand_normal_vector.cross(hand_dir_vector);
-        MakeMatrixFromVec(hand_co, hand_normal_vector, hand_dir_vector, hand_slide_vector);
+        if (mode_ == CoordinatesSet::FBX) {
+          MakeMatrixFromVec(hand_co, hand_normal_vector, hand_dir_vector, hand_slide_vector);
+        } else if (mode_ == CoordinatesSet::VRM) {
+          if (right_hand_) {
+            MakeMatrixFromVec(hand_co, hand_dir_vector, hand_slide_vector, hand_normal_vector);
+          } else {
+            MakeMatrixFromVec(hand_co, -hand_dir_vector, hand_slide_vector, -hand_normal_vector);
+          }
+        }
         result = true;
       }
     }

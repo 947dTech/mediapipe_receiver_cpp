@@ -9,8 +9,17 @@
 
 namespace mediapipe_receiver {
 
+const size_t kNPoseLandmarks = 33;
+const size_t kNFaceLandmarks = 468;
+const size_t kNHandLandmarks = 21;
+
+enum class CoordinatesSet {
+	FBX,
+	VRM
+};
+
 /// @brief make 3x3 rotation matrix using 3 vectors
-/// @param[out] co target matrix 
+/// @param[out] co target matrix
 /// @param[in] x x vector
 /// @param[in] y y vector
 /// @param[in] z z vector
@@ -28,7 +37,7 @@ inline void MakeMatrixFromVec(
 }
 
 /// @brief transform all points using trans / rot
-/// @param points target points, all points are overwritten by transformed points 
+/// @param points target points, all points are overwritten by transformed points
 /// @param[in] tf_trans translation vector
 /// @param[in] tf_rot rotation matrix
 inline void TransformPoints(
@@ -43,8 +52,8 @@ inline void TransformPoints(
 }
 
 /// @brief convert point from camera coordinate (right hand) to model coordinate (left hand)
-/// @param camera_pos 
-/// @param model_pos 
+/// @param camera_pos
+/// @param model_pos
 inline void CameraToModel(const Eigen::Vector3f& camera_pos, Eigen::Vector3f& model_pos)
 {
 	// swap axis into model coordinate (left hand)
