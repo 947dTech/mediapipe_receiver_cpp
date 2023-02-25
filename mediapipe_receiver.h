@@ -157,6 +157,7 @@ private:
 	FaceParams face_params_;
 	Eigen::Matrix3f face_co_;
 	Eigen::Matrix3f face_rot_;
+	Eigen::Matrix3f face_ub_rot_;
 
 	// hand
 	HandParams right_hand_params_;
@@ -1332,6 +1333,11 @@ public:
 		return face_rot_;
 	}
 
+	Eigen::Matrix3f& face_ub_rot()
+	{
+		return face_ub_rot_;
+	}
+
 	void FaceToJointAngles()
 	{
 		MakeNeckCoords();
@@ -1354,6 +1360,9 @@ public:
 
 			Eigen::Matrix3f local_face_co = shoulder_co_.transpose() * face_co_;
 			face_rot_ = local_shoulder_base_co_.transpose() * local_face_co;
+
+			Eigen::Matrix3f local_face_ub_co = shoulder_ub_co_.transpose() * face_co_;
+			face_ub_rot_ = local_shoulder_base_co_.transpose() * local_face_ub_co;
 		}
 	}
 
@@ -1475,6 +1484,23 @@ public:
 			for (size_t i = 0; i < 3; i++) {
 				result(i) = hippos(i);
 			}
+		}
+
+		return result;
+	}
+
+	Eigen::Vector3f EstimateShoulderPosition()
+	{
+		Eigen::Vector3f result(0.0, 0.0, 0.0);
+
+		if (pose_2d_points_.size() != pose_points_.size()) {
+			return result;
+		}
+
+		const std::vector<float>& left_shoulder = pose_points_[11];
+		const std::vector<float>& right_shoulder = pose_points_[12];
+		for (size_t i = 0; i< 3; i++) {
+			result(i) = (left_shoulder[i] + right_shoulder[i]) * 0.5;
 		}
 
 		return result;
