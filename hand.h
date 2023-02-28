@@ -266,6 +266,17 @@ public:
       // NOTE: all side angles are negative in Left hand
       Eigen::Vector3f basis_vec = hand_co_.col(2);
       Eigen::Vector3f appr_vec = hand_co_.col(1);
+      if (mode_ == CoordinatesSet::FBX) {
+        // nop
+      }  else if (mode_ == CoordinatesSet::VRM) {
+          basis_vec = hand_co_.col(1);
+          if (right_hand_) {
+            appr_vec = hand_co_.col(0);
+          } else {
+            appr_vec = -hand_co_.col(0);
+          }
+      }
+
       index_finger_side_angle_ = (index_finger_angles_[0] < 0.5) ?
         FingerSideAngle(basis_vec, hand_points[5], hand_points[6]) : 0.0;
       middle_finger_side_angle_ = (middle_finger_angles_[0] < 0.5) ?
