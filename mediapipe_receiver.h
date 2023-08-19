@@ -35,6 +35,11 @@ private:
 	Eigen::Matrix3f inv_gravity_rot_;
 
 	// ladmarks
+	// NOTE: There are 3 types of coordinate;
+	// - <part>_points_ : in the sensor coordinate
+	// - camera_<part>_points_ : in the gravity-aligned camera coordinate (right-hand)
+	// - model_<part>_points_ : in the model coordinate (left-hand)
+
 	// pose
 	std::vector < std::vector< float > > pose_points_;
 	std::vector	<Eigen::Vector3f> camera_pose_points_;
@@ -857,6 +862,8 @@ public:
 		float norm_shoulder_vec = shoulder_vec.norm();
 		if (norm_shoulder_vec > 1e-5) {
 			Eigen::Vector3f shoulder_x = shoulder_vec / norm_shoulder_vec;
+
+			// Whole body mode, using estimated pelvis coordinate
 			if (mode_ == CoordinatesSet::FBX) {
 				Eigen::Vector3f pelvis_y = pelvis_co_.col(1);
 				// Eigen::Vector3f shoulder_z = pelvis_y.cross(shoulder_x);
@@ -879,6 +886,7 @@ public:
 				}
 			}
 
+			// Upper body mode, using fixed pelvis coordinate
 			if (mode_ == CoordinatesSet::FBX) {
 				Eigen::Vector3f pelvis_ub_y = pelvis_base_co_.col(1);
 				Eigen::Vector3f shoulder_ub_z = shoulder_x.cross(pelvis_ub_y);
@@ -1347,6 +1355,7 @@ public:
 	void MakeNeckCoords()
 	{
 		if (face_params_.MakeNeckCoords(model_face_points_)) {
+			// face rotation in the model coordinate
 			if (mode_ == CoordinatesSet::FBX) {
 				face_co_ = face_params_.face_co();
 			} else if (mode_ == CoordinatesSet::VRM) {
@@ -1354,13 +1363,15 @@ public:
 				face_co_.col(1) = face_params_.face_co().col(2);
 				face_co_.col(2) = -face_params_.face_co().col(1);
 			}
-			// pitch offset
+			// adjust pitch offset
 			face_co_ = face_co_ * Eigen::AngleAxisf(
 				Radians(-20.0 + neck_pitch_offset_), Eigen::Vector3f::UnitX());
 
+			// local rotation for Whole body tracking
 			Eigen::Matrix3f local_face_co = shoulder_co_.transpose() * face_co_;
 			face_rot_ = local_shoulder_base_co_.transpose() * local_face_co;
 
+			// local rotation for Upper body tracking
 			Eigen::Matrix3f local_face_ub_co = shoulder_ub_co_.transpose() * face_co_;
 			face_ub_rot_ = local_shoulder_base_co_.transpose() * local_face_ub_co;
 		}
