@@ -129,6 +129,7 @@ private:
 	// diff to local base coords
 	Eigen::Matrix3f shoulder_rot_;
 	Eigen::Matrix3f shoulder_ub_rot_;
+	Eigen::Matrix3f shoulder_ft_rot_;
 
 	Eigen::Matrix3f upper_arm_l_rot_;
 	Eigen::Matrix3f elbow_l_rot_;
@@ -163,6 +164,7 @@ private:
 	Eigen::Matrix3f face_co_;
 	Eigen::Matrix3f face_rot_;
 	Eigen::Matrix3f face_ub_rot_;
+	Eigen::Matrix3f face_ft_rot_;
 
 	// hand
 	HandParams right_hand_params_;
@@ -471,6 +473,11 @@ public:
 	Eigen::Matrix3f& shoulder_ub_rot()
 	{
 		return shoulder_ub_rot_;
+	}
+
+	Eigen::Matrix3f& shoulder_ft_rot()
+	{
+		return shoulder_ft_rot_;
 	}
 
 	Eigen::Matrix3f& upper_arm_l_rot()
@@ -906,6 +913,8 @@ public:
 					MakeMatrixFromVec(shoulder_ub_co_, shoulder_x, shoulder_ub_y, shoulder_ub_z);
 				}
 			}
+
+			// NOTE: in Face Tracking mode, shoulder_ft is calculated in MakeNeckCoords().
 		}
 
 		// upper arm
@@ -1346,6 +1355,11 @@ public:
 		return face_ub_rot_;
 	}
 
+	Eigen::Matrix3f& face_ft_rot()
+	{
+		return face_ft_rot_;
+	}
+
 	void FaceToJointAngles()
 	{
 		MakeNeckCoords();
@@ -1374,6 +1388,12 @@ public:
 			// local rotation for Upper body tracking
 			Eigen::Matrix3f local_face_ub_co = shoulder_ub_co_.transpose() * face_co_;
 			face_ub_rot_ = local_shoulder_base_co_.transpose() * local_face_ub_co;
+
+			// local rotation for Face tracking
+			Eigen::Matrix3f local_face_ft_co = shoulder_base_co_.transpose() * face_co_;
+			face_ft_rot_ = local_shoulder_base_co_.transpose() * local_face_ft_co;
+			// NOTE: pelvis, shoulder, and neck have same coordinate, just copy face to shoulder
+			shoulder_ft_rot_ = face_ft_rot_;
 		}
 	}
 
