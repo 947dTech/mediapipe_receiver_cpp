@@ -10,7 +10,9 @@
 namespace mediapipe_receiver {
 
 const size_t kNPoseLandmarks = 33;
-const size_t kNFaceLandmarks = 468;
+const size_t kNFaceBaseLandmarks = 468;
+const size_t kNFaceWithIrisLandmarks = 478;
+const size_t kNFaceLandmarks = kNFaceWithIrisLandmarks;
 const size_t kNHandLandmarks = 21;
 
 enum class CoordinatesSet {
