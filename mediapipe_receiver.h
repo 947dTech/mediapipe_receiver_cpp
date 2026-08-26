@@ -671,17 +671,25 @@ public:
 		return model_right_hand_points_;
 	}
 
-	void TransformRightHandPointsToDevice()
+	void TransformRightHandPointsToDevice(bool world = false)
 	{
 		camera_right_hand_points_.resize(right_hand_points_.size());
 		for (size_t i = 0; i < right_hand_points_.size(); i++) {
 			// use Eigen
 			std::vector<float>& pos = right_hand_points_[i];
 			Eigen::Vector3f& eigen_right_hand_point = camera_right_hand_points_[i];
-			// NOTE: 2d landmarks shall be converted into uv geometories
-			eigen_right_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
-			eigen_right_hand_point[1] = (pos[1] - 0.5);
-			eigen_right_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+			if (world) {
+				// NOTE: 3d landmarks shall be copied
+				for (size_t j = 0; j < 3; j++) {
+					// NOT swap axis, in camera coordinate (right hand)
+					eigen_right_hand_point[j] = pos[j];
+				}
+			} else {
+				// NOTE: 2d landmarks shall be converted into uv geometories
+				eigen_right_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
+				eigen_right_hand_point[1] = (pos[1] - 0.5);
+				eigen_right_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+			}
 		}
 	}
 
@@ -714,17 +722,25 @@ public:
 		return model_left_hand_points_;
 	}
 
-	void TransformLeftHandPointsToDevice()
+	void TransformLeftHandPointsToDevice(bool world=false)
 	{
 		camera_left_hand_points_.resize(left_hand_points_.size());
 		for (size_t i = 0; i < left_hand_points_.size(); i++) {
 			// use Eigen
 			std::vector<float>& pos = left_hand_points_[i];
 			Eigen::Vector3f& eigen_left_hand_point = camera_left_hand_points_[i];
-			// NOTE: 2d landmarks shall be converted into uv geometories
-			eigen_left_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
-			eigen_left_hand_point[1] = (pos[1] - 0.5);
-			eigen_left_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+			if (world) {
+				// NOTE: 3d landmarks shall be copied
+				for (size_t j = 0; j < 3; j++) {
+					// NOT swap axis, in camera coordinate (right hand)
+					eigen_left_hand_point[j] = pos[j];
+				}
+			} else {
+				// NOTE: 2d landmarks shall be converted into uv geometories
+				eigen_left_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
+				eigen_left_hand_point[1] = (pos[1] - 0.5);
+				eigen_left_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+			}
 		}
 	}
 
