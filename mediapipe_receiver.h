@@ -20,10 +20,15 @@ private:
 	float pi_;
 
 	// camera params
-	float focal_length_;
+	float focal_length_x_;
+	float focal_length_y_;
 	float frame_width_;
 	float frame_height_;
 	float aspect_ratio_;
+	float cx_;
+	float cy_;
+
+	int32_t rotation_degrees_;  /// rotation angle of image in Degree, [0, 90, 180, 270]
 
 	// gravity
 	std::vector< float > gravity_;
@@ -182,6 +187,7 @@ public:
 		float frame_width = 1280.0;
 		float frame_height = 720.0;
 		SetCameraParams(focal_length, frame_width, frame_height);
+		rotation_degrees_ = 270;
 
 		gravity_.resize(3);
 
@@ -288,6 +294,11 @@ public:
 	float ankle_adjust_angle()
 	{
 		return ankle_adjust_angle_;
+	}
+
+	void rotation_degrees(int32_t val)
+	{
+		rotation_degrees_ = val;
 	}
 
 	void InitPoses(CoordinatesSet mode = CoordinatesSet::FBX)
@@ -636,9 +647,15 @@ public:
 			std::vector<float>& pos = face_points_[i];
 			Eigen::Vector3f& eigen_face_point = camera_face_points_[i];
 			// NOTE: 2d landmarks shall be converted into uv geometories
-			eigen_face_point[0] = (pos[0] - 0.5) / aspect_ratio_;
-			eigen_face_point[1] = (pos[1] - 0.5);
-			eigen_face_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+			if (rotation_degrees_ == 90 || rotation_degrees_ == 270) {
+				eigen_face_point[0] = (pos[0] - 0.5) / aspect_ratio_;
+				eigen_face_point[1] = (pos[1] - 0.5);
+				eigen_face_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+			} else {
+				eigen_face_point[0] = (pos[0] - 0.5) * aspect_ratio_;
+				eigen_face_point[1] = (pos[1] - 0.5);
+				eigen_face_point[2] = (pos[2] - 0.5) * aspect_ratio_;
+			}
 		}
 	}
 
@@ -686,9 +703,15 @@ public:
 				}
 			} else {
 				// NOTE: 2d landmarks shall be converted into uv geometories
-				eigen_right_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
-				eigen_right_hand_point[1] = (pos[1] - 0.5);
-				eigen_right_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+				if (rotation_degrees_ == 90 || rotation_degrees_ == 270) {
+					eigen_right_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
+					eigen_right_hand_point[1] = (pos[1] - 0.5);
+					eigen_right_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+				} else {
+					eigen_right_hand_point[0] = (pos[0] - 0.5) * aspect_ratio_;
+					eigen_right_hand_point[1] = (pos[1] - 0.5);
+					eigen_right_hand_point[2] = (pos[2] - 0.5) * aspect_ratio_;
+				}
 			}
 		}
 	}
@@ -737,9 +760,15 @@ public:
 				}
 			} else {
 				// NOTE: 2d landmarks shall be converted into uv geometories
-				eigen_left_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
-				eigen_left_hand_point[1] = (pos[1] - 0.5);
-				eigen_left_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+				if (rotation_degrees_ == 90 || rotation_degrees_ == 270) {
+					eigen_left_hand_point[0] = (pos[0] - 0.5) / aspect_ratio_;
+					eigen_left_hand_point[1] = (pos[1] - 0.5);
+					eigen_left_hand_point[2] = (pos[2] - 0.5) / aspect_ratio_;
+				} else {
+					eigen_left_hand_point[0] = (pos[0] - 0.5) * aspect_ratio_;
+					eigen_left_hand_point[1] = (pos[1] - 0.5);
+					eigen_left_hand_point[2] = (pos[2] - 0.5) * aspect_ratio_;
+				}
 			}
 		}
 	}
@@ -760,7 +789,7 @@ public:
 	// camera params
 	float focal_length()
 	{
-		return focal_length_;
+		return focal_length_x_;
 	}
 
 	float frame_width()
@@ -780,7 +809,21 @@ public:
 
 	void SetCameraParams(float focal_length, float frame_width, float frame_height)
 	{
-		focal_length_ = focal_length;
+		focal_length_x_ = focal_length;
+		focal_length_y_ = focal_length;
+		cx_ = frame_width * 0.5;
+		cy_ = frame_height * 0.5;
+		frame_width_ = frame_width;
+		frame_height_ = frame_height;
+		aspect_ratio_ = frame_width_ / frame_height_;
+	}
+
+	void SetCameraParams(float fx, float fy, float cx, float cy, float frame_width, float frame_height)
+	{
+		focal_length_x_ = fx;
+		focal_length_y_ = fy;
+		cx_ = cx;
+		cy_ = cy;
 		frame_width_ = frame_width;
 		frame_height_ = frame_height;
 		aspect_ratio_ = frame_width_ / frame_height_;
@@ -1490,7 +1533,8 @@ public:
 		return neck_pitch_offset_;
 	}
 
-	//
+	/// @brief estimate hip position using SV Decompose
+	/// @return hip position (type: Vector3f)
 	Eigen::Vector3f EstimateHipPosition()
 	{
 		Eigen::Vector3f result(0.0, 0.0, 0.0);
@@ -1503,25 +1547,48 @@ public:
 		Eigen::MatrixXf amat(2 * num_points, 3);
 		Eigen::VectorXf bvec(2 * num_points);
 
+		float frame_size_u = frame_width_;
+		float frame_size_v = frame_height_;
+		float focal_length_u = focal_length_x_;
+		float focal_length_v = focal_length_y_;
+		float center_u = cx_;
+		float center_v = cy_;
+		if (rotation_degrees_ == 90) {
+			frame_size_u = frame_height_;
+			frame_size_v = frame_width_;
+			focal_length_u = focal_length_y_;
+			focal_length_v = focal_length_x_;
+			center_u = frame_height_ - cy_;
+			center_v = cx_;
+		} else if (rotation_degrees_ == 180) {
+			center_u = frame_width_ - cx_;
+			center_v = frame_height_ - cy_;
+		} else if (rotation_degrees_ == 270) {
+			frame_size_u = frame_height_;
+			frame_size_v = frame_width_;
+			focal_length_u = focal_length_y_;
+			focal_length_v = focal_length_x_;
+			center_u = cy_;
+			center_v = frame_width_ - cx_;
+		}
+
 		for (size_t i = 0; i < num_points; i++) {
 			const std::vector<float>& uv = pose_2d_points_[i];
 			const std::vector<float>& pt = pose_points_[i];
 
 			// NOTE: pose_2d_points shall be converted into image geometries
-			//float u = uv[0] * frame_height_;
-			//float v = uv[1] * frame_width_;
-			float u = (uv[0] - 0.5) * frame_height_;
-			float v = (uv[1] - 0.5) * frame_width_;
+			float u = uv[0] * frame_size_u - center_u;
+			float v = uv[1] * frame_size_v - center_v;
 
-			amat(i * 2, 0) = focal_length_;
+			amat(i * 2, 0) = focal_length_u;
 			amat(i * 2, 1) = 0.0;
 			amat(i * 2, 2) = -u;
 			amat(i * 2 + 1, 0) = 0.0;
-			amat(i * 2 + 1, 1) = focal_length_;
+			amat(i * 2 + 1, 1) = focal_length_v;
 			amat(i * 2 + 1, 2) = -v;
 
-			bvec(i * 2) = u * pt[2] - pt[0] * focal_length_;
-			bvec(i * 2 + 1) = v * pt[2] - pt[1] * focal_length_;
+			bvec(i * 2) = u * pt[2] - pt[0] * focal_length_u;
+			bvec(i * 2 + 1) = v * pt[2] - pt[1] * focal_length_v;
 		}
 
 		Eigen::VectorXf hippos =
